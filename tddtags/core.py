@@ -31,6 +31,7 @@ tddtags_config = {
     'teardown_method_body': 'pass',
     'test_method_docs_ref_declaration': True,  # Doc line similar to: "# From src_module.Class.a_method"
     'test_method_body': "self.fail('Test not implemented yet')",
+    'verbose': False,
 }
 
 
@@ -67,14 +68,13 @@ def create_end_class_token(class_name):
 
 
 class ModuleLoader(object):
-    def __init__(self, package_dirs=None, verbose=False, script_path=sys.argv[0]):
+    def __init__(self, package_dirs=None, script_path=sys.argv[0]):
         """
         * self.package_dirs: List of dirs where test modules are found. 'tests' included by default.
         :param package_dirs: Optional list of additional dirs to search for modules.
         :param verbose: To enable more stdout messages
         :param script_path: Optional path to pass to findmodules of root path to script. Default sys.argv[0]
         """
-        self.verbose = verbose
         self.package_dirs = ['tests']
         if package_dirs:
             self.package_dirs.extend(package_dirs)
@@ -82,8 +82,6 @@ class ModuleLoader(object):
         # Hard coding just the one
         # TODO - Add other search dirs
         # findmodules.init(base='tests')
-        print self.package_dirs
-        print 'package_dirs = %s' % self.package_dirs
         [findmodules.init(script=script_path, base=dir, throw=True) for dir in self.package_dirs]
 
     def load_module(self, name):
@@ -93,18 +91,18 @@ class ModuleLoader(object):
         """
         fp = None
         try:
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '+ Finding module: %s' % name
 
             fp, pathname, stuff = imp.find_module(name)
 
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '+ Found module: %s' % name
 
             try:
                 module = imp.load_module(name, fp, pathname, stuff)
 
-                if self.verbose:
+                if tddtags_config['verbose']:
                     print '+ Loaded module: %s (%s)' % (name, pathname)
 
                 return module
@@ -113,10 +111,10 @@ class ModuleLoader(object):
                 return None
 
         except ImportError as ex:
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '- Failed to find module: %s. -> %s' % (name, ex.message)
             return None
-        else:
+        finally:
             if fp:
                 fp.close()
 
@@ -302,6 +300,7 @@ class UTModuleContainer(object):
         """
         class_def_line, end_token_line = self._find_class_end(class_name=class_name)
         if end_token_line == -1:
+            print 'Warning: Failed to find/recreate class end token'
             return False
 
         # Write the new test method to a string with the formatter
@@ -325,6 +324,7 @@ class UTModuleContainer(object):
         """ Saves the module file with the updates if it's been changed
         :unit_test: save_end_no_tag_end_of_module
         :unit_test: save_end_no_tag
+        :unit_test: save_not_dirty
         """
         if not self.dirty_flag:
             return True
@@ -368,7 +368,7 @@ class UTModuleContainer(object):
         class_def_line = -1
         next_class_def_line = -1
         end_token_line = -1
-        # re_class_line = r'^class[ ]+' + class_name + '[ ]*\\('
+
         re_any_class_line = r'^class[ ]+([a-zA-Z0-9_]+)[ ]*\('
         end_token = create_end_class_token(class_name)
 
@@ -376,6 +376,7 @@ class UTModuleContainer(object):
             m = re.search(re_any_class_line, line)
             if m and m.group(1) == class_name:
                 class_def_line = i  # 0 based indexing
+                # print 'Found class def line: %s on %d' % (class_name, class_def_line)
                 continue
             elif m and class_def_line != -1 and next_class_def_line == -1:
                 next_class_def_line = i
@@ -389,6 +390,7 @@ class UTModuleContainer(object):
         # Did we find the start of our class but not the end token and no next class? Means there is no
         # token and the end of the class is the end of the file.
         if end_token_line == -1 and class_def_line != -1:
+            # print "Still haven't found the end token for class %s" % class_name
             token = create_end_class_token(class_name)
             line = '    # --%s --\n' % token
 
@@ -412,6 +414,8 @@ class UTModuleContainer(object):
                 self.lines.insert(prev_code_end + 2, '\n')
                 self.lines.insert(prev_code_end + 2, line)
                 self.dirty_flag = True
+
+        # print class_name, class_def_line, end_token_line
 
         return class_def_line, end_token_line
 
@@ -459,7 +463,6 @@ class ModuleUpdater(object):
         """
         self.ut_module = ut_module
         self.loaded_module = loaded_module
-        self.verbose = True
 
     def update(self, module_path):
         """
@@ -467,8 +470,8 @@ class ModuleUpdater(object):
         :unit_test: update
         :unit_test: update_invalid_path
         """
-        if self.verbose:
-            print '+ Updating existing module: %s (%s)' % (self.ut_module.module_name, module_path)
+        if tddtags_config['verbose']:
+            print '+ Comparing existing test module: %s (%s)' % (self.ut_module.module_name, module_path)
 
         # Will be a UTModuleContainer if there are changes
         container = None
@@ -490,7 +493,7 @@ class ModuleUpdater(object):
                 save_name = 'ut_test_save.py'
 
             container.save_module(save_name)
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print 'Saved the updated test module file to %s' % save_name
         return True
 
@@ -537,7 +540,7 @@ class ModuleUpdater(object):
         if not new_test_names:
             return True
 
-        if self.verbose:
+        if tddtags_config['verbose']:
             print '+ %d new test methods for class: [%s]' % (len(new_test_names), class_name)
 
         for method_name in new_test_names:
@@ -545,7 +548,7 @@ class ModuleUpdater(object):
             if not result:
                 print 'Warning: Failed to add the method %s to the class %s' % (method_name, class_name)
                 return False
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '+ Added test method to class [%s]: %s' % (class_name, method_name)
 
         return True
@@ -557,13 +560,13 @@ class ModuleUpdater(object):
         :param new_names: List of new classes to add
         :unit_test:
         """
-        if self.verbose:
+        if tddtags_config['verbose']:
             print '+ %d new classes' % len(new_names)
 
         for class_name in new_names:
             ut_class = self.ut_module.class_list[class_name]
             container.append_class(ut_class=ut_class)
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '+ Adding class to test module [%s]: %s' % (self.ut_module.module_name, class_name)
 
 
@@ -584,16 +587,14 @@ class TDDTag(object):
         self.test_base_class = 'TestCase'
         # -- If true, and if a unit test module exists, output the structure
         self.dump_existing_modules = False
-        self.verbose = False
 
-    def run(self, module_name, class_filter=None, verbose=False):
+    def run(self, module_name, class_filter=None):
         """ Run the DogTag scanner and generator
         :param module_name: The name of the module to scan
         :param class_filter: The optional name of a class to constrain the scan to
         """
-        self.verbose = verbose
         print "\nTDDTag - scanning source to generate/update unit test skeletons"
-        compiler = CompileTags(module_name=module_name, verbose=verbose)
+        compiler = CompileTags(module_name=module_name)
 
         if compiler.compile():
             self.inject_or_create_unit_tests()
@@ -617,22 +618,22 @@ class TDDTag(object):
         """ Handles the injecting/create for a specific module
         :param ut_module: UTModuleDetails
         :unit_test: handle_invalid_module
+        :unit_test: handle_new_module
         """
-        # TODO Probably an overly naive approach
         m_file = None
 
         try:
-            if self.verbose:
+            if tddtags_config['verbose']:
                 print '+ Handling unit test module: %s' % ut_module.module_name
 
-            print 'trying module loader'
+            # print 'trying module loader'
             module = ut_module_loader.load_module(ut_module.module_name)
-            print 'done'
+            # print 'done'
 
             m_file, path, description = imp.find_module(ut_module.module_name)
-            print 'found it'
+            # print 'found it'
             module = imp.load_module(ut_module.module_name, m_file, path, description)
-            print 'Loaded target module: %s' % ut_module.module_name
+            # print 'Loaded target module: %s' % ut_module.module_name
 
             updater = ModuleUpdater(ut_module=ut_module, loaded_module=module)
             updater.update(module_path=path)
@@ -640,7 +641,6 @@ class TDDTag(object):
         except ImportError as ex:
             print 'Warning: %s' % ex.message
             print 'Test module not found. Creating new: %s' % ut_module.module_name
-            return
         finally:
             if m_file:
                 m_file.close()
@@ -698,7 +698,7 @@ class CompileTags(object):
     """
     re_keyword_line = r':(unit_test[_a-z]*): *([a-zA-Z_]*) *(.*)'
 
-    def __init__(self, module_name, verbose=False):
+    def __init__(self, module_name):
         """
         :unit_test: create_instance
         :unit_test: create_invalid_module
@@ -710,7 +710,6 @@ class CompileTags(object):
         self.module_name = m.group(1)
         self.unit_test_module = []
         self.unit_test_class = []
-        self.verbose = verbose
 
         self.unit_test_module.append(self.module_name)  # Push default module and class unittest names
 
@@ -724,7 +723,7 @@ class CompileTags(object):
         """
         module = ut_module_loader.load_module(self.module_name)
 
-        # "Screw you guys - I'm going home!"
+        # "Screw you guys - I'm going home!" -- Cartman
         if not module:
             return False
 
@@ -740,36 +739,6 @@ class CompileTags(object):
         for key in gen_module_details:
             gen_module_details[key].dump()
 
-    # Deprecated
-    def process_keywords(self, keywords, context):
-        """
-        Processes the list of keywords extracted from a context docstrings.
-        """
-        if not keywords:
-            return
-
-        # module = self.unit_test_module[-1]
-        # clazz = self.unit_test_class[-1]
-
-        unit_tests = [value for keyword, value in keywords if keyword == 'unit_test']
-        modules = [value for keyword, value in keywords if keyword == 'unit_test_module']
-        test_classes = [value for keyword, value in keywords if keyword == 'unit_test_class']
-
-        if modules:
-            self.unit_test_module.append(modules[-1])  # Last one wins
-        if test_classes:
-            self.unit_test_class.append(test_classes[-1])  # Last one wins
-
-        # Process through the unit tests
-        for test_name in unit_tests:
-            self.process_unit_test(value=value, context=context)
-
-        # Unwind
-        if modules:
-            self.unit_test_module.pop()
-        if test_classes:
-            self.unit_test_class.pop()
-
     @staticmethod
     def get_default_test_name(context):
         """
@@ -778,7 +747,14 @@ class CompileTags(object):
         :unit_test: get_default_test_name
         :unit_test: get_default_test_name_no_context
         """
-        return context.__name__
+        name = context.__name__
+        if not name:
+            print 'No name found for context: %s' % str(context)
+            return 'UnknownName'
+        if inspect.isclass(context):
+            return name + 'Tests'
+        else:
+            return name
 
     def process_unit_test(self, test_name, context):
         """
@@ -913,7 +889,7 @@ def create_module_loader(with_doc_tags=True, script_path=sys.argv[0]):
     package_dirs = []
     if with_doc_tags:
         package_dirs = ['tddtags']
-    ut_module_loader = ModuleLoader(package_dirs=package_dirs, verbose=True, script_path=script_path)
+    ut_module_loader = ModuleLoader(package_dirs=package_dirs, script_path=script_path)
 
 
 if __name__ == '__main__':
@@ -923,11 +899,12 @@ if __name__ == '__main__':
     parser.add_argument('--save-to', action='store', dest='save_name', help='Optional name to save updated test module to.')
     args = parser.parse_args()
 
+    # Are we chatty?
+    tddtags_config['verbose'] = args.verbose
+
     # Configure the module loader
     create_module_loader()
-    ut_module_loader.verbose = args.verbose
 
     # Create the TDDTag
     gen = TDDTag()
-
-    gen.run(module_name=args.module_name, verbose=args.verbose)
+    gen.run(module_name=args.module_name)

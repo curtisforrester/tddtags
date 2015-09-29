@@ -211,11 +211,12 @@ class CompileTagsTests(unittest.TestCase):
         # That comes in the call to .compile()
 
     def test_get_default_test_name(self):
-        self.assertEqual(CompileTags.get_default_test_name(self.__class__), 'CompileTagsTests')
+        self.assertEqual(CompileTags.get_default_test_name(self.__class__), 'CompileTagsTestsTests')
+        # This name will be a little silly since there is already "Tests" in the name...
 
     def test_get_default_test_name_no_context(self):
         """Verify that get_default_test_name raises if context is blank or invalid"""
-        self.assertEqual(CompileTags.get_default_test_name(self.__class__), 'CompileTagsTests')
+        self.assertEqual(CompileTags.get_default_test_name(self.__class__), 'CompileTagsTestsTests')
         self.assertRaises(AttributeError, CompileTags.get_default_test_name, None)
 
     def test_compile(self):
@@ -247,7 +248,7 @@ class CompileTagsTests(unittest.TestCase):
 
         ut_module = gen_module_details['sample']
         ut_class = ut_module.class_list['sampleTests']
-        self.assertTrue('CompileTagsTests' in ut_class.method_names)
+        self.assertTrue('CompileTagsTestsTests' in ut_class.method_names)
 
     def test_process_ut_method_no_context(self):
         gen = CompileTags(module_name='sample.py')
@@ -257,7 +258,7 @@ class CompileTagsTests(unittest.TestCase):
         gen = CompileTags(module_name='sample.py')
         self.assertRaises(AttributeError, gen.process_unit_test, test_name='', context=None)
 
-    # --DocTag: /CompileTagsTests ---
+    # --TDDTag: /CompileTagsTests ---
 
 
 class UTClassDetailsTests(unittest.TestCase):
@@ -279,7 +280,7 @@ class UTClassDetailsTests(unittest.TestCase):
         self.assertIsInstance(reply, str)
         self.assertTrue('SomeClass' in reply)
 
-    # --DocTag: /UTClassDetailsTests ---
+    # --TDDTag: /UTClassDetailsTests ---
 
 
 class UTModuleDetailsTests(unittest.TestCase):
@@ -288,13 +289,26 @@ class UTModuleDetailsTests(unittest.TestCase):
         self.assertEqual(module.module_name, 'my_mod')
         self.assertEqual(module.test_base_class, 'TestCase')
 
-    # --DocTag: /UTModuleDetailsTests ---
+    @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
+    def test_to_string(self):
+        self.fail('Test not implemented yet')
+
+    @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
+    def test_add_class(self):
+        self.fail('Test not implemented yet')
+
+    # --TDDTag: /UTModuleDetailsTests ---
 
 
 class ModuleContainerTests(unittest.TestCase):
     def setUp(self):
         self.path = 'tests/a_test_sample.py'
         self.container = UTModuleContainer(module_path=self.path)
+
+    def tearDown(self):
+        import os
+        files = [tmp for tmp in os.listdir('.') if tmp.startswith('output')]
+        [os.remove(f) for f in files]
 
     def test_create_instance(self):
         self.assertEqual(self.container.module_path, self.path)
@@ -348,8 +362,8 @@ class ModuleContainerTests(unittest.TestCase):
         end_token = create_end_class_token('ClassNoEndTag')
         with open('output2.py') as f:
             lines = f.readlines()
-            for index in xrange(end_line-1, end_line+2):
-                print '[%d] %s' % (index, lines[index].strip())
+            # for index in xrange(end_line-1, end_line+2):
+            #     print '[%d] %s' % (index, lines[index].strip())
 
             self.assertTrue(end_token in lines[end_line], 'Line: %s' % lines[end_line])
 
@@ -388,7 +402,13 @@ class ModuleContainerTests(unittest.TestCase):
         self.assertTrue(lines)
         self.assertIsInstance(lines, list)
 
-    # --DocTag: /ModuleContainerTests ---
+    def test_save_not_dirty(self):
+        ret = self.container.save_module('nothin.py')
+        self.assertTrue(ret)
+        import os
+        self.assertFalse(os.path.exists('nothin.py'))
+
+    # --TDDTag: /ModuleContainerTests ---
 
 
 @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
@@ -421,7 +441,7 @@ class ModuleUpdaterTests(TestCase):
     def test_update_invalid_path(self):
         self.fail('Not implemented yet')
 
-    # -- DocTag: /ModuleUpdaterTests ---
+    # -- TDDTag: /ModuleUpdaterTests ---
 
 
 @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
@@ -445,7 +465,7 @@ class FormatterTests(TestCase):
     def test_module_header(self):
         self.fail('Not implemented yet')
 
-    # -- DocTag: /FormatterTests ---
+    # -- TDDTag: /FormatterTests ---
 
 
 @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
@@ -466,7 +486,7 @@ class GlobalTests(TestCase):
     def test_get_class_that_defined_method(self):
         self.fail('Not implemented yet')
 
-    # -- DocTag: /GlobalTests ---
+    # -- TDDTag: /GlobalTests ---
 
 
 @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
@@ -484,4 +504,26 @@ class DocTagTests(TestCase):
     def test_handle_invalid_module(self):
         self.fail('Not implemented yet')
 
-    # -- DocTag: /DocTagTests ---
+    # -- TDDTag: /DocTagTests ---
+
+
+class TDDTagTests(TestCase):
+    """
+    Generated by TDDTag
+    """
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_create_instance(self):
+        self.fail('Test not implemented yet')
+
+    def test_handle_invalid_module(self):
+        self.fail('Test not implemented yet')
+
+    def test_handle_new_module(self):
+        self.fail('Test not implemented yet')
+
+    # -- TDDTag: /TDDTagTests ---
