@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-:unit_test_module: test_tddtags
+Core for tddtags module.
+
+--> The related default test [package.]module to update
+:unit_test_module: tests.test_tddtags
+--> The default TestCase class for module-level functions
 :unit_test_class: GlobalTests
 """
+import os
 import sys
 import argparse
 import imp
 import inspect
 import re
 import StringIO
-import findmodules
+import importlib
 
-gen_module_details = {}
+test_module_details = {}
 ut_module_loader = None
-ut_update_original_file = True
 
 # --> The config defaults; overwrite within a setup.cfg file in a section [tddtag].
 # TODO: Add ConfigParser support for tddtags_config from setup.cfg
@@ -32,6 +36,8 @@ tddtags_config = {
     'test_method_docs_ref_declaration': True,  # Doc line similar to: "# From src_module.Class.a_method"
     'test_method_body': "self.fail('Test not implemented yet')",
     'verbose': False,
+    'save': True,
+    'save_to_name': None,
 }
 
 
@@ -68,33 +74,47 @@ def create_end_class_token(class_name):
 
 
 class ModuleLoader(object):
-    def __init__(self, package_dirs=None, script_path=sys.argv[0]):
-        """
-        * self.package_dirs: List of dirs where test modules are found. 'tests' included by default.
-        :param package_dirs: Optional list of additional dirs to search for modules.
-        :param verbose: To enable more stdout messages
-        :param script_path: Optional path to pass to findmodules of root path to script. Default sys.argv[0]
-        """
-        self.package_dirs = ['tests']
-        if package_dirs:
-            self.package_dirs.extend(package_dirs)
+    """
+    Light wrapper around importlib.
 
-        # Hard coding just the one
-        # TODO - Add other search dirs
-        # findmodules.init(base='tests')
-        [findmodules.init(script=script_path, base=dir, throw=True) for dir in self.package_dirs]
+    :unit_test_class: ModuleLoaderTests
+    """
+    def __init__(self, anchor_dir):
+        """
+        :param anchor_dir: The directory that the code and test packages are in/under.
+        :unit_test: create_instance
+        """
+        if not os.path.exists(anchor_dir):
+            raise Exception('Anchor dir does not exist: %s' % anchor_dir)
+
+        # Pop this anchor directory into our path
+        print 'Adding %s to sys.path' % anchor_dir
+        sys.path.append(anchor_dir)
 
     def load_module(self, name):
+        try:
+            mod = importlib.import_module(name)
+            return mod
+        except ImportError as ex:
+            print '- Failed to load module: %s. -> %s' % (name, ex.message)
+            return None
+
+    def load_module_old(self, name):
         """
         Finds and loads the module and returns the loaded module object. Uses self.test_dirs to locate the
         module.
         """
+        import os
         fp = None
         try:
             if tddtags_config['verbose']:
                 print '+ Finding module: %s' % name
 
-            fp, pathname, stuff = imp.find_module(name)
+            (path, name) = os.path.split(name)
+            (name, ext) = os.path.splitext(name)
+            print path, name, ext
+
+            fp, pathname, stuff = imp.find_module(name, [path])
 
             if tddtags_config['verbose']:
                 print '+ Found module: %s' % name
@@ -469,6 +489,8 @@ class ModuleUpdater(object):
         Updates the unit test module Python text for a module.
         :unit_test: update
         :unit_test: update_invalid_path
+        :unit_test: update_no_save
+        :unit_test: update_with_save_name
         """
         if tddtags_config['verbose']:
             print '+ Comparing existing test module: %s (%s)' % (self.ut_module.module_name, module_path)
@@ -488,13 +510,12 @@ class ModuleUpdater(object):
 
         # Are there changes to the module to save?
         if container and container.dirty_flag:
-            save_name = module_path
-            if not ut_update_original_file:
-                save_name = 'ut_test_save.py'
+            if tddtags_config['save']:
+                save_name = module_path if not tddtags_config['save_name'] else tddtags_config['save_name']
+                #container.save_module(save_name)
 
-            container.save_module(save_name)
-            if tddtags_config['verbose']:
-                print 'Saved the updated test module file to %s' % save_name
+                if tddtags_config['verbose']:
+                    print 'Saved the updated test module file to %s' % save_name
         return True
 
     def _check_existing_classes(self, container, module_path, existing_classes):
@@ -588,32 +609,45 @@ class TDDTag(object):
         # -- If true, and if a unit test module exists, output the structure
         self.dump_existing_modules = False
 
-    def run(self, module_name, class_filter=None):
+    def run(self, source_module_name, class_filter=None):
         """ Run the DogTag scanner and generator
         :param module_name: The name of the module to scan
         :param class_filter: The optional name of a class to constrain the scan to
         """
         print "\nTDDTag - scanning source to generate/update unit test skeletons"
-        compiler = CompileTags(module_name=module_name)
+        compiler = CompileTags(source_module_name=source_module_name)
 
+        # First inspect the source module and compile a list of stuff
         if compiler.compile():
-            self.inject_or_create_unit_tests()
+            self.process_referenced_test_modules()
 
-    def inject_or_create_unit_tests(self):
+    def process_referenced_test_modules(self):
         """
         Will create a new file for the unit tests, or inject new tests into an existing
         test module.
         """
-        if not gen_module_details:
+        if not test_module_details:
             print 'No tags to generate unittests for'
             return
 
         # --> Iterate through each module
-        for key in gen_module_details:
-            module = gen_module_details[key]
-            if module.class_list:
-                self.handle_module(module)
+        for key in test_module_details:
+            ut_module = test_module_details[key]
 
+            if not module.class_list:
+                if tddtags_config['verbose']:
+                    print '+ Skipping test module %s - nothing to do.' % ut_module.module_name
+                continue
+
+            # Is the module there to update?
+            module = ut_module_loader.load_module(ut_module.module_name)
+            if module:
+                updater = ModuleUpdater(ut_module=ut_module, loaded_module=module)
+                updater.update(module_path=path)
+            else:
+                self.gen_new_test_module(ut_module=ut_module)
+
+    # Deprecated...
     def handle_module(self, ut_module):
         """ Handles the injecting/create for a specific module
         :param ut_module: UTModuleDetails
@@ -621,6 +655,7 @@ class TDDTag(object):
         :unit_test: handle_new_module
         """
         m_file = None
+        raise Exception('Deprecated')
 
         try:
             if tddtags_config['verbose']:
@@ -630,10 +665,10 @@ class TDDTag(object):
             module = ut_module_loader.load_module(ut_module.module_name)
             # print 'done'
 
-            m_file, path, description = imp.find_module(ut_module.module_name)
-            # print 'found it'
-            module = imp.load_module(ut_module.module_name, m_file, path, description)
-            # print 'Loaded target module: %s' % ut_module.module_name
+            # m_file, path, description = imp.find_module(ut_module.module_name)
+            # # print 'found it'
+            # module = imp.load_module(ut_module.module_name, m_file, path, description)
+            # # print 'Loaded target module: %s' % ut_module.module_name
 
             updater = ModuleUpdater(ut_module=ut_module, loaded_module=module)
             updater.update(module_path=path)
@@ -677,8 +712,8 @@ class TDDTag(object):
         """
         formatter = Formatter()
 
-        # for key in gen_module_details:
-        #     module = gen_module_details[key]
+        # for key in test_module_details:
+        #     module = test_module_details[key]
         formatter.gen_test_module_header(out_file=source_file, module_name=ut_module.module_name)
 
         for class_key in ut_module.class_list:
@@ -698,16 +733,19 @@ class CompileTags(object):
     """
     re_keyword_line = r':(unit_test[_a-z]*): *([a-zA-Z_]*) *(.*)'
 
-    def __init__(self, module_name):
+    def __init__(self, source_module_name):
         """
         :unit_test: create_instance
         :unit_test: create_invalid_module
         """
-        m = re.search(r'([a-zA-Z_]+)[.py]?', module_name)
-        if not m:
-            raise Exception('Invalid module name')
+        # m = re.search(r'([a-zA-Z_]+)[.py]?', source_module_name)
+        # if not m:
+        #     raise Exception('Invalid module name')
+        (path, name) = os.path.split(source_module_name)
+        (name, ext) = os.path.splitext(name)
 
-        self.module_name = m.group(1)
+        self.module_name = name
+        self.module_full_name = source_module_name
         self.unit_test_module = []
         self.unit_test_class = []
 
@@ -721,10 +759,11 @@ class CompileTags(object):
         Runs the scanner over the module.
         :unit_test:
         """
-        module = ut_module_loader.load_module(self.module_name)
+        module = ut_module_loader.load_module(self.module_full_name)
 
         # "Screw you guys - I'm going home!" -- Cartman
         if not module:
+            print 'No module returned by the module loader: %s' % self.module_full_name
             return False
 
         self.handle_context(target=module, parent_context=module)
@@ -733,11 +772,11 @@ class CompileTags(object):
     def dump(self):
         """
         """
-        print gen_module_details
-        print gen_module_details.keys()
+        print test_module_details
+        print test_module_details.keys()
 
-        for key in gen_module_details:
-            gen_module_details[key].dump()
+        for key in test_module_details:
+            test_module_details[key].dump()
 
     @staticmethod
     def get_default_test_name(context):
@@ -767,10 +806,10 @@ class CompileTags(object):
         test_module_name = self.unit_test_module[-1]
         test_class_name = self.unit_test_class[-1]
 
-        if test_module_name not in gen_module_details:
-            gen_module_details[test_module_name] = UTModuleDetails(module_name=test_module_name)
+        if test_module_name not in test_module_details:
+            test_module_details[test_module_name] = UTModuleDetails(module_name=test_module_name)
 
-        gen_module = gen_module_details[test_module_name]
+        gen_module = test_module_details[test_module_name]
         gen_class = gen_module.add_class(test_class_name, gen_module.test_base_class)
 
         method_name = test_name or CompileTags.get_default_test_name(context)
@@ -880,31 +919,36 @@ class CompileTags(object):
         return keywords
 
 
-def create_module_loader(with_doc_tags=True, script_path=sys.argv[0]):
+def create_module_loader(anchor_dir=None):
     """
     Create the default module loader.
     """
     print 'Creating module loader'
     global ut_module_loader
-    package_dirs = []
-    if with_doc_tags:
-        package_dirs = ['tddtags']
-    ut_module_loader = ModuleLoader(package_dirs=package_dirs, script_path=script_path)
+
+    if not anchor_dir:
+        anchor_dir = os.getcwd()
+
+    ut_module_loader = ModuleLoader(anchor_dir=anchor_dir)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate unit test skeletons from docstrings')
-    parser.add_argument('module_name', help='The module to scan')
+    parser.add_argument('module_name', help='The module to scan: [package.package.]module')
     parser.add_argument('-v', '--verbose', action='store_true', help='Prints verbose diagnostic messages')
-    parser.add_argument('--save-to', action='store', dest='save_name', help='Optional name to save updated test module to.')
+    parser.add_argument('-a', '--anchor', action='store', dest='anchor_dir', help='Anchor directory to package/modules. Default is getcwd().')
+    parser.add_argument('--nosave', action='store_true', help='Do not save to unit test file - view updates only')
+    # parser.add_argument('--save-to', action='store', dest='save_name', help='Optional name to save updated test module to.')
     args = parser.parse_args()
 
     # Are we chatty?
     tddtags_config['verbose'] = args.verbose
+    tddtags_config['save'] = not args.nosave
+    # tddtags_config['save_to_name'] = args.save_name
 
     # Configure the module loader
-    create_module_loader()
+    create_module_loader(anchor_dir=args.anchor_dir)
 
     # Create the TDDTag
     gen = TDDTag()
-    gen.run(module_name=args.module_name)
+    gen.run(source_module_name=args.module_name)

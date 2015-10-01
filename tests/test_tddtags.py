@@ -14,7 +14,7 @@ import mock
 import imp
 import inspect
 
-from tddtags.core import CompileTags, UTClassDetails, UTModuleDetails, gen_module_details, UTModuleContainer, \
+from tddtags.core import CompileTags, UTClassDetails, UTModuleDetails, test_module_details, UTModuleContainer, \
     create_end_class_token, create_module_loader
 
 skip_not_impl = True
@@ -32,7 +32,8 @@ class CompileTagsTests(unittest.TestCase):
     """
 
     def setUp(self):
-        pass
+        if not test_module_details:
+            create_module_loader(anchor_dir=self.get_script_path())
 
     def get_handle_context_parms(self, call_list, index=0):
         """
@@ -112,7 +113,7 @@ class CompileTagsTests(unittest.TestCase):
     def test_push_modules_and_classes(self):
         modules = ['sample', 'a_name']
         test_classes = ['sampleTests', 'a_class_name']
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample')
         gen.push_modules_and_classes(modules=['a_name'], test_classes=test_classes, context=self)
         self.assertEqual(gen.unit_test_module, modules)
         self.assertEqual(gen.unit_test_class, test_classes)
@@ -120,7 +121,7 @@ class CompileTagsTests(unittest.TestCase):
     def test_pop_module_and_class(self):
         modules = ['sample', 'a_name']
         test_classes = ['sampleTests', 'a_class_name']
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample.py')
 
         # --> First push
         gen.push_modules_and_classes(modules=modules, test_classes=test_classes, context=self)
@@ -134,7 +135,7 @@ class CompileTagsTests(unittest.TestCase):
 
     def test_iterate_child_list(self):
         with mock.patch('tddtags.core.CompileTags.handle_context', spec=True):
-            gen = CompileTags(module_name='Sample.py')
+            gen = CompileTags(source_module_name='Sample.py')
             child_list = [('name1', 'entity1'), ('name2', 'entity2')]
             gen.iterate_child_list(children=child_list, context='some_context')
 
@@ -147,7 +148,7 @@ class CompileTagsTests(unittest.TestCase):
     # @unittest.skip('Refactoring')
     def test_handle_context(self):
         with mock.patch('tddtags.core.CompileTags.iterate_child_list', spec=True):
-            gen = CompileTags(module_name='Sample.py')
+            gen = CompileTags(source_module_name='Sample.py')
             gen.unit_test_module.append('sample')
             gen.unit_test_class.append('SampleTests')
 
@@ -161,7 +162,7 @@ class CompileTagsTests(unittest.TestCase):
 
     def test_handle_context_with_iterate(self):
         with mock.patch('tddtags.core.CompileTags.process_unit_test', spec=True):
-            gen = CompileTags(module_name='Sample.py')
+            gen = CompileTags(source_module_name='Sample.py')
             gen.unit_test_module.append('sample')
             gen.unit_test_class.append('SampleTests')
 
@@ -176,7 +177,7 @@ class CompileTagsTests(unittest.TestCase):
             self.assertEqual(test_name, 'eat_more_chocolate')
 
     def test_handle_context_full(self):
-        gen = CompileTags(module_name='Sample.py')
+        gen = CompileTags(source_module_name='Sample.py')
         gen.unit_test_module.append('sample')
         gen.unit_test_class.append('SampleTests')
 
@@ -185,9 +186,9 @@ class CompileTagsTests(unittest.TestCase):
         clazz = [clazz for name, clazz in child_classes if name == 'ChildSample'][0]
         gen.handle_context(target=clazz, parent_context=target)
 
-        keys = gen_module_details.keys()
+        keys = test_module_details.keys()
         self.assertTrue(keys)
-        module_details = gen_module_details[keys[0]]
+        module_details = test_module_details[keys[0]]
         self.assertEqual(module_details.module_name, 'sample')
         self.assertEqual(len(module_details.class_list), 1)
         # print ".class_list: ", module_details.class_list
@@ -199,14 +200,14 @@ class CompileTagsTests(unittest.TestCase):
         pass
 
     def test_create_instance(self):
-        gen = CompileTags(module_name='Sample.py')
+        gen = CompileTags(source_module_name='Sample.py')
         self.assertEqual(gen.module_name, 'Sample')
         # I push initial placeholder defaults
         self.assertEqual(gen.unit_test_class, ['SampleTests'])
         self.assertEqual(gen.unit_test_module, ['Sample'])
 
     def test_create_invalid_module(self):
-        self.assertRaises(Exception, CompileTags(module_name='invalid/name'))
+        self.assertRaises(Exception, CompileTags(source_module_name='invalid/name'))
         # Note: The constructor does not validate the existence of the module.
         # That comes in the call to .compile()
 
@@ -219,13 +220,16 @@ class CompileTagsTests(unittest.TestCase):
         self.assertEqual(CompileTags.get_default_test_name(self.__class__), 'CompileTagsTestsTests')
         self.assertRaises(AttributeError, CompileTags.get_default_test_name, None)
 
-    def test_compile(self):
+    def get_script_path(self):
         import os
-        # This sets up the environment as if we had run with "python tddtags/gen.py"
         script_path = os.path.realpath('tddtags/sample.py')
-        create_module_loader(with_doc_tags=True, script_path=script_path)
+        (path, name) = os.path.split(script_path)
+        return path
+
+    def test_compile(self):
+        # This sets up the environment as if we had run with "python tddtags/gen.py"
         with mock.patch('tddtags.core.CompileTags.handle_context', spec=True):
-            gen = CompileTags(module_name='sample.py')
+            gen = CompileTags(source_module_name='sample')
             ret = gen.compile()
             self.assertTrue(ret, 'Compile returned False')
 
@@ -235,27 +239,27 @@ class CompileTagsTests(unittest.TestCase):
             self.assertTrue(inspect.ismodule(kwargs['target']))
 
     def test_process_ut_method(self):
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample.py')
         gen.process_unit_test(test_name='some_test', context=self.__class__)
 
-        ut_module = gen_module_details['sample']
+        ut_module = test_module_details['sample']
         ut_class = ut_module.class_list['sampleTests']
         self.assertTrue('some_test' in ut_class.method_names)
 
     def test_process_ut_method_blank_name(self):
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample.py')
         gen.process_unit_test(test_name='', context=self.__class__)
 
-        ut_module = gen_module_details['sample']
+        ut_module = test_module_details['sample']
         ut_class = ut_module.class_list['sampleTests']
         self.assertTrue('CompileTagsTestsTests' in ut_class.method_names)
 
     def test_process_ut_method_no_context(self):
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample.py')
         gen.process_unit_test(test_name='some_test', context=None)
 
     def test_process_ut_method_no_context_blank_name(self):
-        gen = CompileTags(module_name='sample.py')
+        gen = CompileTags(source_module_name='sample.py')
         self.assertRaises(AttributeError, gen.process_unit_test, test_name='', context=None)
 
     # --TDDTag: /CompileTagsTests ---
@@ -507,6 +511,7 @@ class DocTagTests(TestCase):
     # -- TDDTag: /DocTagTests ---
 
 
+@unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
 class TDDTagTests(TestCase):
     """
     Generated by TDDTag

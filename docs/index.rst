@@ -18,10 +18,16 @@ Contents:
    authors
    history
 
+Need to specify the root package folder. Can run tddtag from anywhere, but generally it will be launched
+from the same folder where a source module is, or from the root of the package being tested. But: will need to
+allow specifying the exact anchor folder.
+
+The unit_test_module needs to specify the full package.module to the unit test module unless it is in the
+same package as the source.
+
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
