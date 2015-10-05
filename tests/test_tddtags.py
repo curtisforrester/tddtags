@@ -15,6 +15,7 @@ import mock
 import imp
 import inspect
 
+import tddtags.core
 from tddtags.core import CompileTags, UTClassDetails, UTModuleDetails, _test_module_details, UTModuleContainer, \
     create_end_class_token, create_module_loader, ModuleUpdater, ModuleLoader
 
@@ -22,6 +23,12 @@ skip_not_impl = True
 
 
 class MockHelperMixin(object):
+    def setUp(self):
+        super(MockHelperMixin, self).setUp()
+
+    def tearDown(self):
+        super(MockHelperMixin, self).tearDown()
+
     def get_patched_call_parms(self, parm_info, patched_foo, index=0):
         """
         A more generalized method for pulling out the parms passed to a mock-patched
@@ -42,6 +49,18 @@ class MockHelperMixin(object):
 
     def return_true(*args, **kwargs):
         return True
+
+
+class TddSettingsRestoreMixin(object):
+    def setUp(self):
+        import copy
+        super(TddSettingsRestoreMixin, self).setUp()
+        self.settings = copy.deepcopy(tddtags.core.tddtags_config)
+
+    def tearDown(self):
+        import copy
+        super(TddSettingsRestoreMixin, self).tearDown()
+        tddtags.core.tddtags_config = copy.deepcopy(self.settings)
 
 
 class CompileTagsTests(unittest.TestCase):
@@ -346,7 +365,8 @@ class ModuleContainerTests(unittest.TestCase):
     def test_create_invalid_path(self):
         """Verify UTModuleContainer raises IOError on invalid path"""
         bad_path = self.path + 'xx'
-        self.assertRaises(IOError, UTModuleContainer, module_path=bad_path)
+        bad_path = '/usr/local/bad.py'
+        self.assertRaises(Exception, UTModuleContainer, module_path=bad_path)
 
     def test_find_class_end(self):
         class_line, end_line = self.container._find_class_end('sampleTests')
@@ -437,13 +457,52 @@ class ModuleContainerTests(unittest.TestCase):
         import os
         self.assertFalse(os.path.exists('nothin.py'))
 
+    def test_with_pyc(self):
+        anchor_dir = os.getcwd()
+        loader = ModuleLoader(anchor_dir=anchor_dir)
+        mod = loader.load_module(name='tddtags.core')
+        self.assertTrue(mod)
+        self.assertTrue('.pyc' in mod.__file__)
+
+        container = UTModuleContainer(module_path=mod.__file__)
+        self.assertNotEqual(container.module_path, mod.__file__)
+
     # --TDDTag: /ModuleContainerTests ---
 
 
+class VerifySetupTeardown(TestCase):
+    """ Since Python's module import/reference shit is, well, shit """
+
+    @classmethod
+    def setUpClass(cls):
+        import copy
+        tddtags.core.tddtags_config['test'] = 'abc'
+
+    def setUp(self):
+        import copy
+        # self.assertEqual(tddtags_config['test'], 'abc')
+        self.settings = copy.deepcopy(tddtags.core.tddtags_config)
+
+    def tearDown(self):
+        import copy
+        self.assertEqual(tddtags.core.tddtags_config['test'], 'def')
+        tddtags.core.tddtags_config = copy.deepcopy(self.settings)
+        self.assertEqual(tddtags.core.tddtags_config['test'], 'abc')
+
+    def test_one(self):
+        self.assertEqual(tddtags.core.tddtags_config['test'], 'abc')
+        tddtags.core.tddtags_config['test'] = 'def'
+
+    def test_two(self):
+        self.assertEqual(tddtags.core.tddtags_config['test'], 'abc')
+        tddtags.core.tddtags_config['test'] = 'def'
+
 # @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
-class ModuleUpdaterTests(MockHelperMixin, TestCase):
+class ModuleUpdaterTests(TddSettingsRestoreMixin, MockHelperMixin, TestCase):
     """Auto-gen by DocTag"""
     def setUp(self):
+        import copy
+        super(ModuleUpdaterTests, self).setUp()
         self.tmp_file = 'tests/test_tmp.py'
         self.tmp_module_name = 'tests.test_tmp'
         shutil.copyfile('tests/a_test_sample.py', self.tmp_file)
@@ -453,6 +512,7 @@ class ModuleUpdaterTests(MockHelperMixin, TestCase):
         self.anchor_dir = os.getcwd()
 
     def tearDown(self):
+        super(ModuleUpdaterTests, self).tearDown()
         os.remove(self.tmp_file)
 
     def test_tmp_file(self):
@@ -478,8 +538,36 @@ class ModuleUpdaterTests(MockHelperMixin, TestCase):
         existing_classes, new_classes = updater._get_class_lists(loaded_module=mod)
         self.assertTrue(new_classes)
 
-    def test_update(self):
-        self.fail('Not implemented yet')
+    def test_update_verify_path(self):
+        with mock.patch('tddtags.core.ModuleUpdater._update_step1', spec=True) as ModCon:
+            # --> Prep
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            updater._update_step1.side_effect = self.return_true
+            loader = ModuleLoader(anchor_dir=self.anchor_dir)
+            mod = loader.load_module(name=self.tmp_module_name)
+
+            # --> Test
+            reply = updater.update(loaded_module=mod)
+            parm_info = [('loaded_module', 0), ('module_path', 1)]
+            kwargs = self.get_patched_call_parms(parm_info, updater._update_step1, 0)
+            self.assertTrue(self.tmp_file in kwargs['module_path'])
+            self.assertEqual(kwargs['loaded_module'], mod)
+
+    def test_update_no_save(self):
+        with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
+            # --> Prep
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            loader = ModuleLoader(anchor_dir=self.anchor_dir)
+            mod = loader.load_module(name=self.tmp_module_name)
+            tddtags.core.tddtags_config['save'] = False
+
+            # --> Need something new to do (Remember, this just uses the ut_module setup in setUp())
+            ut_class = self.ut_module.class_list['ChildSampleTests']
+            ut_class.add_method('eat_peanuts')
+
+            # --> Test
+            reply = updater.update(loaded_module=mod)
+            self.assertEqual(updater.container.save_module.call_count, 0)
 
     def test_save_no_container(self):
         updater = ModuleUpdater(ut_module=self.ut_module)
@@ -496,6 +584,7 @@ class ModuleUpdaterTests(MockHelperMixin, TestCase):
             self.assertTrue(ret)
 
             self.assertEqual(container.save_module.call_count, 0)
+
     def test_save_with_changes(self):
         with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
             # --> Prep. This time we need a container
@@ -514,18 +603,14 @@ class ModuleUpdaterTests(MockHelperMixin, TestCase):
             self.assertEqual(kwargs['save_name'], abs_file_path)
 
     def test_save_different_name(self):
-        from tddtags.core import tddtags_config
 
         with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
             # --> Prep. This time we need a container, and a changed filename
-            tddtags_config['save_to_name'] = 'changed.py'
+            tddtags.core.tddtags_config['save_to_name'] = 'changed.py'
             container = UTModuleContainer(module_path=self.tmp_file)
             updater = ModuleUpdater(ut_module=self.ut_module)
             container.dirty_flag = True
             ret = updater._save(container=container)
-
-            # Reset the save_to_name since it's module global
-            tddtags_config['save_to_name'] = None
             self.assertTrue(ret)
 
             self.assertEqual(container.save_module.call_count, 1)

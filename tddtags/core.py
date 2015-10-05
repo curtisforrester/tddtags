@@ -304,9 +304,38 @@ class UTModuleContainer(object):
         :unit_test: create_instance
         :unit_test: create_invalid_path "Verify that we handle an invalid path with IOError"
         """
-        self.module_path = os.path.abspath(module_path)
+        # Find the path to the modules's source
+        self.module_path = self._get_source_filename(module_path=module_path)
+
+        if tddtags_config['verbose']:
+            print '--> module source: %s' % self.module_path
+
         self.lines = UTModuleContainer.load_module_lines(module_path=self.module_path)
         self.dirty_flag = False  # True if the module lines are changed
+
+    def _get_source_filename(self, module_path):
+        """
+        Since the module path might point to the pyc, pyo or PEP 0488 name pattern as found in:
+        https://www.python.org/dev/peps/pep-0488/#implementation
+        This, then attempts to find the name to the module source. It will verify that the source
+        file path exists.
+        :param module_path: The path to the loaded module
+        :return: The path to the module's source file
+        """
+        module_source = module_path
+
+        # TODO This might break if the module is from __pycache__ and uses the PEP 0488 naming
+        if not module_path.endswith('py'):
+            (path, name) = os.path.split(module_path)
+            (name, ext) = os.path.splitext(name)
+            module_source = os.path.join(path, name+'.py')
+
+        # Verify the file exists
+        module_source = os.path.abspath(module_source)
+        if not os.path.exists(module_source):
+            msg = 'Module source file not found at: %s' % module_source
+            raise Exception(msg)
+        return module_source
 
     def add_class_method(self, class_name, method_name):
         """ Adds the new test method to the class.
@@ -321,7 +350,9 @@ class UTModuleContainer(object):
         """
         class_def_line, end_token_line = self._find_class_end(class_name=class_name)
         if end_token_line == -1:
-            print 'Warning: Failed to find/recreate class end token'
+            print 'Warning: Failed to find/recreate class end token: %s' % class_name
+            # print 'Lines cnt: %d' % len(self.lines)
+            # print 'Module path: %s' % self.module_path
             return False
 
         # Write the new test method to a string with the formatter
@@ -436,7 +467,7 @@ class UTModuleContainer(object):
                 self.lines.insert(prev_code_end + 2, line)
                 self.dirty_flag = True
 
-        # print class_name, class_def_line, end_token_line
+        # print class_name, end_token, class_def_line, end_token_line
 
         return class_def_line, end_token_line
 
@@ -484,6 +515,7 @@ class ModuleUpdater(object):
         :unit_test: create_instance
         """
         self.ut_module = ut_module
+        self.container = None
 
     def update(self, loaded_module):
         """
@@ -492,25 +524,29 @@ class ModuleUpdater(object):
         methods.
 
         :param loaded_module: The module object for the unit test module.
-        :unit_test: update
+        :unit_test: update_verify_path
         :unit_test: update_no_save
         :unit_test: update_with_save_name
         """
-        module_path = loaded_module.__path__
+        module_path = loaded_module.__file__
         if tddtags_config['verbose']:
             print '+ Comparing existing test module: %s (%s)' % (self.ut_module.module_name, module_path)
 
+        # This, simply to make it easier to mock/test
+        return self._update_step1(loaded_module=loaded_module, module_path=module_path)
+
+    def _update_step1(self, loaded_module, module_path):
         # UTModuleContainer, if there are changes
         container = None
 
         existing_classes, new_names = self._get_class_lists(loaded_module=loaded_module)
         if new_names:
             # First add any new classes. Later update each class test methods
-            container = UTModuleContainer(module_path=module_path)
-            self._add_new_classes(container, new_names)
+            self.container = UTModuleContainer(module_path=module_path)
+            self._add_new_classes(self.container, new_names)
 
-        container = self._update_new_methods(container, module_path=module_path, existing_classes=existing_classes)
-        return self._save(container)
+        self.container = self._update_new_methods(self.container, module_path=module_path, existing_classes=existing_classes)
+        return self._save(self.container)
 
     def _save(self, container):
         """
@@ -524,7 +560,7 @@ class ModuleUpdater(object):
         # Are there changes to the module to save?
         if not tddtags_config['save'] or not container or not container.dirty_flag:
             if tddtags_config['verbose']:
-                print 'No save necessary for %s' % self.ut_module.module_name
+                print 'Not saving %s (--nosave=%s)' % (self.ut_module.module_name, ['True', 'False'][tddtags_config['save']])
             return True
 
         # TODO If we support wildcard scanning of source files we'll need a better way to specify save_name
@@ -559,8 +595,8 @@ class ModuleUpdater(object):
         :param module_path: The path to the unit test module
         :param existing_classes: The set of existing classes in the module from inspect
         :returns: None, or a UTModuleContainer if updated
-        :unit_test: _update_new_methods
-        :unit_test: _update_new_methods_no_new Verify no changes made if no new class test methods
+        :unit_test: update_new_methods
+        :unit_test: update_new_methods_no_new Verify no changes made if no new class test methods
         """
         # Any required updates?
         for name, clazz in existing_classes.items():
@@ -655,6 +691,7 @@ class TDDTag(object):
 
         # First inspect the source module and compile a list of stuff
         if compiler.compile():
+            # compiler.dump()
             self.process_referenced_test_modules()
 
     def process_referenced_test_modules(self):
@@ -676,6 +713,9 @@ class TDDTag(object):
                 continue
 
             # Does the module already exist to update? Must be the full package.module unless in the same package.
+            if tddtags_config['verbose']:
+                print '+ Loading module %s' % ut_module.module_name
+
             module = _module_loader.load_module(ut_module.module_name)
             if module:
                 updater = ModuleUpdater(ut_module=ut_module)
@@ -768,7 +808,7 @@ class CompileTags(object):
     Compiles a source module and extracts our tags from docstrings.
     :unit_test_class: CompileTagsTests
     """
-    re_keyword_line = r':(unit_test[_a-z]*): *([a-zA-Z_]*) *(.*)'
+    re_keyword_line = r':(unit_test[_a-z]*): *([a-zA-Z_.]*) *(.*)'
 
     def __init__(self, source_module_name):
         """
