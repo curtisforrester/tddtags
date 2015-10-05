@@ -46,7 +46,6 @@ def filter_to_class(members_list, clazz):
     """
     Filter the class list from a .getmembers() to only those that are defined in clazz.
     (Visual verify: this should be a test test_filter_to_class in GlobalTests)
-    :unit_test:
     """
     filtered_list = []
     for name, method in members_list:
@@ -59,7 +58,6 @@ def filter_to_class(members_list, clazz):
 def get_class_that_defined_method(meth):
     """
     Returns the class that this method was defined within.
-    :unit_test:
     """
     for clazz in inspect.getmro(meth.im_class):
         if meth.__name__ in clazz.__dict__:
@@ -82,6 +80,10 @@ class ModuleLoader(object):
     """
     def __init__(self, anchor_dir):
         """
+        The anchor_dir is necessary when we are running the tddtags from one directory,
+        launching from another, and inspecting modules from a third location. Typical Python
+        fun.
+
         :param anchor_dir: The directory that the code and test packages are in/under.
         :unit_test: create_instance
         """
@@ -90,54 +92,24 @@ class ModuleLoader(object):
 
         # Pop this anchor directory into our path
         print 'Adding %s to sys.path' % anchor_dir
-        sys.path.append(anchor_dir)
+        if not anchor_dir in sys.path:
+            sys.path.append(anchor_dir)
 
     def load_module(self, name):
+        """
+        Loads the module by name
+        :param name: The name, [package.]module, to load.
+        :return: Module, or None if ImportError
+        :unit_test:
+        :unit_test: load_module_name_unknown
+        :unit_test: load_module_diff_anchor
+        """
         try:
             mod = importlib.import_module(name)
             return mod
         except ImportError as ex:
             print '- Failed to load module: %s. -> %s' % (name, ex.message)
             return None
-
-    def load_module_old(self, name):
-        """
-        Finds and loads the module and returns the loaded module object. Uses self.test_dirs to locate the
-        module.
-        """
-        import os
-        fp = None
-        try:
-            if tddtags_config['verbose']:
-                print '+ Finding module: %s' % name
-
-            (path, name) = os.path.split(name)
-            (name, ext) = os.path.splitext(name)
-            print path, name, ext
-
-            fp, pathname, stuff = imp.find_module(name, [path])
-
-            if tddtags_config['verbose']:
-                print '+ Found module: %s' % name
-
-            try:
-                module = imp.load_module(name, fp, pathname, stuff)
-
-                if tddtags_config['verbose']:
-                    print '+ Loaded module: %s (%s)' % (name, pathname)
-
-                return module
-            except ImportError as ex:
-                print '- Failed to load module: %s. -> %s' % (name, ex.message)
-                return None
-
-        except ImportError as ex:
-            if tddtags_config['verbose']:
-                print '- Failed to find module: %s. -> %s' % (name, ex.message)
-            return None
-        finally:
-            if fp:
-                fp.close()
 
 
 class UTClassDetails(object):
@@ -215,7 +187,6 @@ class Formatter(object):
 
     The strings for this are stored in the 'tddtags_config' dictionary.
     :unit_test_class: FormatterTests
-    :unit_test: gen_to_string
     """
     def __init(self):
         pass
@@ -279,6 +250,7 @@ class Formatter(object):
         Generates the test method line.
 
         The body is specified in the tddtags_config, and is currently a single line.
+        :unit_test:
         """
         full_name = method_name
         if not full_name.startswith('test_'):
@@ -680,19 +652,23 @@ class TDDTag(object):
         self.test_base_class = 'TestCase'
         # -- If true, and if a unit test module exists, output the structure
         self.dump_existing_modules = False
+        self.compiler = None
 
     def run(self, source_module_name, class_filter=None):
         """ Run the DogTag scanner and generator
         :param module_name: The name of the module to scan
-        :param class_filter: The optional name of a class to constrain the scan to
+        :param class_filter: The optional name of a class to constrain the scan to (not used)
+        :unit_test: run_valid_module Verify sets up compiler sucessfully
+        :unit_test: run_invalid_module Verify handles invalid module correctly
         """
         print "\nTDDTag - scanning source to generate/update unit test skeletons"
-        compiler = CompileTags(source_module_name=source_module_name)
+        self.compiler = CompileTags(source_module_name=source_module_name)
 
         # First inspect the source module and compile a list of stuff
-        if compiler.compile():
-            # compiler.dump()
+        if self.compiler.compile():
             self.process_referenced_test_modules()
+            return True
+        return False
 
     def process_referenced_test_modules(self):
         """
@@ -723,41 +699,6 @@ class TDDTag(object):
             else:
                 # TODO: This should use the ModuleUpdater
                 self.gen_new_test_module(ut_module=ut_module)
-
-    # # Deprecated...
-    # def handle_module(self, ut_module):
-    #     """ Handles the injecting/create for a specific module
-    #     :param ut_module: UTModuleDetails
-    #     :unit_test: handle_invalid_module
-    #     :unit_test: handle_new_module
-    #     """
-    #     m_file = None
-    #     raise Exception('Deprecated')
-    #
-    #     try:
-    #         if tddtags_config['verbose']:
-    #             print '+ Handling unit test module: %s' % ut_module.module_name
-    #
-    #         # print 'trying module loader'
-    #         module = _module_loader.load_module(ut_module.module_name)
-    #         # print 'done'
-    #
-    #         # m_file, path, description = imp.find_module(ut_module.module_name)
-    #         # # print 'found it'
-    #         # module = imp.load_module(ut_module.module_name, m_file, path, description)
-    #         # # print 'Loaded target module: %s' % ut_module.module_name
-    #
-    #         updater = ModuleUpdater(ut_module=ut_module, loaded_module=module)
-    #         updater.update(module_path=path)
-    #         return
-    #     except ImportError as ex:
-    #         print 'Warning: %s' % ex.message
-    #         print 'Test module not found. Creating new: %s' % ut_module.module_name
-    #     finally:
-    #         if m_file:
-    #             m_file.close()
-    #
-    #     self.gen_new_test_module(ut_module=ut_module)
 
     def update_test_module(self, ut_module, loaded_module):
         """
