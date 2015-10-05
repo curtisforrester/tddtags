@@ -7,17 +7,41 @@ test_tddtags.py
 
 Tests for `tddtags` module.
 """
-
+import os
+import shutil
 import unittest
 from unittest import TestCase
 import mock
 import imp
 import inspect
 
-from tddtags.core import CompileTags, UTClassDetails, UTModuleDetails, test_module_details, UTModuleContainer, \
-    create_end_class_token, create_module_loader
+from tddtags.core import CompileTags, UTClassDetails, UTModuleDetails, _test_module_details, UTModuleContainer, \
+    create_end_class_token, create_module_loader, ModuleUpdater, ModuleLoader
 
 skip_not_impl = True
+
+
+class MockHelperMixin(object):
+    def get_patched_call_parms(self, parm_info, patched_foo, index=0):
+        """
+        A more generalized method for pulling out the parms passed to a mock-patched
+        method. The parm_info is a list of tuples (keyword_name, position)
+        """
+        call_list = patched_foo.call_args_list
+        args, kwargs = call_list[index]
+        ret_dict = {}
+        for kw, pos in parm_info:
+            if kw in kwargs:
+                ret_dict[kw] = kwargs[kw]
+            else:
+                ret_dict[kw] = args[0]
+        return ret_dict
+
+    def return_false(*args, **kwargs):
+        return False
+
+    def return_true(*args, **kwargs):
+        return True
 
 
 class CompileTagsTests(unittest.TestCase):
@@ -32,7 +56,7 @@ class CompileTagsTests(unittest.TestCase):
     """
 
     def setUp(self):
-        if not test_module_details:
+        if not _test_module_details:
             create_module_loader(anchor_dir=self.get_script_path())
 
     def get_handle_context_parms(self, call_list, index=0):
@@ -186,9 +210,9 @@ class CompileTagsTests(unittest.TestCase):
         clazz = [clazz for name, clazz in child_classes if name == 'ChildSample'][0]
         gen.handle_context(target=clazz, parent_context=target)
 
-        keys = test_module_details.keys()
+        keys = _test_module_details.keys()
         self.assertTrue(keys)
-        module_details = test_module_details[keys[0]]
+        module_details = _test_module_details[keys[0]]
         self.assertEqual(module_details.module_name, 'sample')
         self.assertEqual(len(module_details.class_list), 1)
         # print ".class_list: ", module_details.class_list
@@ -242,7 +266,7 @@ class CompileTagsTests(unittest.TestCase):
         gen = CompileTags(source_module_name='sample.py')
         gen.process_unit_test(test_name='some_test', context=self.__class__)
 
-        ut_module = test_module_details['sample']
+        ut_module = _test_module_details['sample']
         ut_class = ut_module.class_list['sampleTests']
         self.assertTrue('some_test' in ut_class.method_names)
 
@@ -250,7 +274,7 @@ class CompileTagsTests(unittest.TestCase):
         gen = CompileTags(source_module_name='sample.py')
         gen.process_unit_test(test_name='', context=self.__class__)
 
-        ut_module = test_module_details['sample']
+        ut_module = _test_module_details['sample']
         ut_class = ut_module.class_list['sampleTests']
         self.assertTrue('CompileTagsTestsTests' in ut_class.method_names)
 
@@ -289,17 +313,18 @@ class UTClassDetailsTests(unittest.TestCase):
 
 class UTModuleDetailsTests(unittest.TestCase):
     def test_create_instance(self):
-        module = UTModuleDetails(module_name='my_mod')
-        self.assertEqual(module.module_name, 'my_mod')
-        self.assertEqual(module.test_base_class, 'TestCase')
+        ut_module = UTModuleDetails(module_name='my_mod')
+        self.assertEqual(ut_module.module_name, 'my_mod')
+        self.assertFalse(ut_module.class_list)
 
-    @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
     def test_to_string(self):
-        self.fail('Test not implemented yet')
+        ut_module = UTModuleDetails(module_name='my_mod')
+        self.assertIsInstance(str(ut_module), str)
 
-    @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
     def test_add_class(self):
-        self.fail('Test not implemented yet')
+        ut_module = UTModuleDetails(module_name='my_mod')
+        ut_module.add_class(class_name='SomeClass')
+        self.assertTrue('SomeClass' in ut_module.class_list)
 
     # --TDDTag: /UTModuleDetailsTests ---
 
@@ -315,7 +340,7 @@ class ModuleContainerTests(unittest.TestCase):
         [os.remove(f) for f in files]
 
     def test_create_instance(self):
-        self.assertEqual(self.container.module_path, self.path)
+        self.assertEqual(self.container.module_path, os.path.abspath(self.path))
         self.assertTrue(self.container.lines)
 
     def test_create_invalid_path(self):
@@ -415,35 +440,192 @@ class ModuleContainerTests(unittest.TestCase):
     # --TDDTag: /ModuleContainerTests ---
 
 
-@unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
-class ModuleUpdaterTests(TestCase):
+# @unittest.skipIf(skip_not_impl, 'Skipping new, not implemented')
+class ModuleUpdaterTests(MockHelperMixin, TestCase):
     """Auto-gen by DocTag"""
     def setUp(self):
-        pass
+        self.tmp_file = 'tests/test_tmp.py'
+        self.tmp_module_name = 'tests.test_tmp'
+        shutil.copyfile('tests/a_test_sample.py', self.tmp_file)
+        self.ut_module = UTModuleDetails(module_name='test_tmp')
+        self.ut_module.add_class(class_name='ChildSampleTests')
+
+        self.anchor_dir = os.getcwd()
 
     def tearDown(self):
-        pass
+        os.remove(self.tmp_file)
+
+    def test_tmp_file(self):
+        self.assertTrue(self.tmp_file)
+        self.assertTrue(os.path.exists(self.tmp_file))
 
     def test_create_instance(self):
-        self.fail('Not implemented yet')
+        updater = ModuleUpdater(ut_module=self.ut_module)
+        self.assertEqual(updater.ut_module, self.ut_module)
 
-    def test__add_new_classes(self):
-        self.fail('Not implemented yet')
+    def test_get_class_lists(self):
+        updater = ModuleUpdater(ut_module=self.ut_module)
+        loader = ModuleLoader(anchor_dir=self.anchor_dir)
+        mod = loader.load_module(self.tmp_module_name)
+        self.assertTrue(mod)
 
-    def test_add_new_tests(self):
-        self.fail('Not implemented yet')
+        # --> And test it first with no difference...
+        existing_classes, new_classes = updater._get_class_lists(loaded_module=mod)
+        self.assertFalse(new_classes)
 
-    def test_check_existing_classes(self):
-        self.fail('Not implemented yet')
-
-    def test_check_existing_classes_none(self):
-        self.fail('Not implemented yet')
+        # --> Then with a new one
+        self.ut_module.add_class(class_name='NewClassTests')
+        existing_classes, new_classes = updater._get_class_lists(loaded_module=mod)
+        self.assertTrue(new_classes)
 
     def test_update(self):
         self.fail('Not implemented yet')
 
-    def test_update_invalid_path(self):
-        self.fail('Not implemented yet')
+    def test_save_no_container(self):
+        updater = ModuleUpdater(ut_module=self.ut_module)
+        ret = updater._save(container=None)
+        self.assertTrue(ret)
+
+    def test_save_no_changes(self):
+        with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
+            # --> Prep. This time we need a container, but no changes
+            container = UTModuleContainer(module_path=self.tmp_file)
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            self.assertFalse(container.dirty_flag)
+            ret = updater._save(container=container)
+            self.assertTrue(ret)
+
+            self.assertEqual(container.save_module.call_count, 0)
+    def test_save_with_changes(self):
+        with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
+            # --> Prep. This time we need a container
+            container = UTModuleContainer(module_path=self.tmp_file)
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            container.dirty_flag = True
+            ret = updater._save(container=container)
+            self.assertTrue(ret)
+
+            self.assertEqual(container.save_module.call_count, 1)
+
+            # --> Check the filename
+            parm_info = [('save_name', 0)]
+            kwargs = self.get_patched_call_parms(parm_info, container.save_module, 0)
+            abs_file_path = os.path.abspath(self.tmp_file)
+            self.assertEqual(kwargs['save_name'], abs_file_path)
+
+    def test_save_different_name(self):
+        from tddtags.core import tddtags_config
+
+        with mock.patch('tddtags.core.UTModuleContainer.save_module', spec=True) as ModCon:
+            # --> Prep. This time we need a container, and a changed filename
+            tddtags_config['save_to_name'] = 'changed.py'
+            container = UTModuleContainer(module_path=self.tmp_file)
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            container.dirty_flag = True
+            ret = updater._save(container=container)
+
+            # Reset the save_to_name since it's module global
+            tddtags_config['save_to_name'] = None
+            self.assertTrue(ret)
+
+            self.assertEqual(container.save_module.call_count, 1)
+
+            parm_info = [('save_name', 0)]
+            kwargs = self.get_patched_call_parms(parm_info, container.save_module, 0)
+            self.assertEqual(kwargs['save_name'], 'changed.py')
+
+    def test_add_new_classes(self):
+        # updater = ModuleUpdater(ut_module=self.ut_module)
+        # loader = ModuleLoader(anchor_dir=self.anchor_dir)
+        # mod = loader.load_module(self.tmp_module_name)
+        # self.assertTrue(mod)
+
+        container = UTModuleContainer(module_path=self.tmp_file)
+        self.assertTrue(container.lines)
+
+        # --> Add our new class
+        self.ut_module.add_class(class_name='NewClassTests')
+
+        # --> Test it
+        updater = ModuleUpdater(ut_module=self.ut_module)
+        updater._add_new_classes(container=container, new_names=['NewClassTests'])
+
+        # --> Verify
+        lines = [line for line in container.lines if 'NewClassTests' in line]
+        self.assertEqual(len(lines), 2)
+
+    def test_add_new_tests_to_class(self):
+        with mock.patch('tddtags.core.UTModuleContainer.add_class_method', spec=True) as ModCon:
+            # ModCon.add_class_method.side_effect = False
+            container = UTModuleContainer(module_path=self.tmp_file)
+            container.add_class_method.side_effect = self.return_true
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            reply = updater._add_new_tests_to_class(container, 'ChildSampleTests', ['test_something_else'])
+            self.assertTrue(reply)
+
+            self.assertEqual(container.add_class_method.call_count, 1)
+            parm_info = [('class_name', 0), ('method_name', 1)]
+            kwargs = self.get_patched_call_parms(parm_info, container.add_class_method, 0)
+            self.assertEqual(kwargs['class_name'], 'ChildSampleTests')
+            self.assertEqual(kwargs['method_name'], 'test_something_else')
+
+    def test_add_new_tests_to_class_container_fail(self):
+        with mock.patch('tddtags.core.UTModuleContainer.add_class_method', spec=True) as ModCon:
+            # ModCon.add_class_method.side_effect = False
+            container = UTModuleContainer(module_path=self.tmp_file)
+            container.add_class_method.side_effect = self.return_false
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            reply = updater._add_new_tests_to_class(container, 'ChildSampleTests', ['test_something_else'])
+            self.assertFalse(reply)
+
+            self.assertEqual(container.add_class_method.call_count, 1)
+
+    def test_add_new_tests_to_class_none(self):
+         with mock.patch('tddtags.core.UTModuleContainer.add_class_method', spec=True):
+             container = UTModuleContainer(module_path=self.tmp_file)
+             updater = ModuleUpdater(ut_module=self.ut_module)
+             reply = updater._add_new_tests_to_class(container, 'class_name', [])
+             self.assertTrue(reply)
+
+             self.assertEqual(container.add_class_method.call_count, 0)
+
+    def test_update_new_methods(self):
+        with mock.patch('tddtags.core.ModuleUpdater._add_new_tests_to_class', spec=True) as ModUp:
+            # --> Prep
+            ut_class = self.ut_module.class_list['ChildSampleTests']
+            ut_class.add_method('eat_beans')
+            container = None  # We'll also verity that it correctly creates the container and returns it
+            loader = ModuleLoader(anchor_dir=self.anchor_dir)
+            mod = loader.load_module(self.tmp_module_name)
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            existing_classes, new_names = updater._get_class_lists(loaded_module=mod)
+
+            # --> The test
+            container = updater._update_new_methods(container, self.tmp_file, existing_classes)
+            self.assertTrue(container)
+            self.assertIsInstance(container, UTModuleContainer)
+
+            self.assertEqual(updater._add_new_tests_to_class.call_count, 1)
+            parm_info = [('container', 0), ('class_name', 1), ('new_test_names', 2)]
+            kwargs = self.get_patched_call_parms(parm_info, updater._add_new_tests_to_class, 0)
+            self.assertEqual(kwargs['class_name'], 'ChildSampleTests')
+            self.assertEqual(kwargs['new_test_names'], ['test_eat_beans'])
+
+    def test_update_new_methods_none(self):
+        with mock.patch('tddtags.core.ModuleUpdater._add_new_tests_to_class', spec=True) as ModUp:
+            # --> Prep
+            # (Same as test_update_new_methods, but no new test method added)
+            container = None  # We'll also verity that it correctly creates the container and returns it
+            loader = ModuleLoader(anchor_dir=self.anchor_dir)
+            mod = loader.load_module(self.tmp_module_name)
+            updater = ModuleUpdater(ut_module=self.ut_module)
+            existing_classes, new_names = updater._get_class_lists(loaded_module=mod)
+
+            # --> The test
+            container = updater._update_new_methods(container, self.tmp_file, existing_classes)
+            self.assertFalse(container)
+
+            self.assertEqual(updater._add_new_tests_to_class.call_count, 0)
 
     # -- TDDTag: /ModuleUpdaterTests ---
 
