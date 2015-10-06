@@ -777,6 +777,9 @@ class CompileTags(object):
         Runs the scanner over the module.
         :unit_test:
         """
+        if tddtags_config['verbose']:
+            print '+ Compiling tags from %s' % self.module_full_name
+
         module = _module_loader.load_module(self.module_full_name)
 
         # "Screw you guys - I'm going home!" -- Cartman
@@ -890,22 +893,41 @@ class CompileTags(object):
         # child_list = inspect.getmembers(target, inspect.isfunction)
         child_list = []
         if inspect.ismodule(target):
-            child_list.extend(inspect.getmembers(target, inspect.isclass))
+            child_list.extend(self.get_module_classes(target))
+            child_list.extend(inspect.getmembers(target, inspect.isfunction))
+        else:
             child_list.extend(inspect.getmembers(target, inspect.isfunction))
         child_list.extend(self.get_class_methods(target=target))
-        # print 'Child List: ' ,child_list
-        # assert False
+
         self.iterate_child_list(children=child_list, context=target)
 
         # --> Unwind, if we pushed module name or class name
         self.pop_module_and_class(modules=modules, test_classes=test_classes)
 
+    def get_module_classes(self, target):
+        """
+        Gets a list of the classes for a module - classes that are defined within that module. Python's
+        inspect will return classes "for" a module that are imported explicitly. We don't care about those.
+        """
+        classes = inspect.getmembers(target, inspect.isclass)
+        filtered_list = []
+        for name, clazz in classes:
+            if clazz.__module__ == target.__name__:
+                filtered_list.append((name, clazz))
+        return filtered_list
+
     def get_class_methods(self, target):
-        # print 'Target: ', target
-        methods = inspect.getmembers(target, inspect.ismethod)
+        """
+        Gets the list of methods that are directly defined by a class (not parent class(es) methods).
+        """
+        methods = inspect.getmembers(target, inspect.ismethod)  # inspect.ismethod)
         filtered = filter_to_class(members_list=methods, clazz=target)
         # print 'Filtered: ', filtered
         return filtered
+
+    @staticmethod
+    def _method_filter(entity):
+        return inspect.ismethod(entity) or inspect.isfunction(entity)
 
     def iterate_child_list(self, children, context):
         """
