@@ -17,4 +17,6 @@ Declare unit tests as tags within docstrings
 Features
 --------
 
-* TODO
+Status:
+* The core utility works
+* TODO: Need to finish the package setup stuffs, Travis, PyPi, Docs, etc.
