@@ -10,7 +10,6 @@ Core for tddtags module.
 import os
 import sys
 import argparse
-import imp
 import inspect
 import re
 import StringIO
@@ -30,9 +29,9 @@ tddtags_config = {
     'generate_setup_method': True,
     'generate_teardown_method': True,
     'setup_method_def': 'def setUp(self):',
-    'setup_method_body': 'pass',
+    'setup_method_body': 'super(%s, self).setUp()',
     'teardown_method_def': 'def tearDown(self):',
-    'teardown_method_body': 'pass',
+    'teardown_method_body': 'super(%s, self).tearDown()',
     'test_method_docs_ref_declaration': True,  # Doc line similar to: "# From src_module.Class.a_method"
     'test_method_body': "self.fail('Test not implemented yet')",
     'verbose': False,
@@ -50,6 +49,7 @@ def filter_to_class(members_list, clazz):
     filtered_list = []
     for name, method in members_list:
         definer = get_class_that_defined_method(method)
+        # print ':>> ', definer, clazz
         if definer == clazz:
             filtered_list.append((name, method))
     return filtered_list
@@ -58,10 +58,15 @@ def filter_to_class(members_list, clazz):
 def get_class_that_defined_method(meth):
     """
     Returns the class that this method was defined within.
+    :unit_test:
     """
     for clazz in inspect.getmro(meth.im_class):
         if meth.__name__ in clazz.__dict__:
             return clazz
+
+    # Catches the classmethod variant
+    if meth.__self__:
+        return meth.__self__
     return None
 
 
@@ -92,7 +97,7 @@ class ModuleLoader(object):
 
         # Pop this anchor directory into our path
         print 'Adding %s to sys.path' % anchor_dir
-        if not anchor_dir in sys.path:
+        if anchor_dir not in sys.path:
             sys.path.append(anchor_dir)
 
     def load_module(self, name):
@@ -221,11 +226,13 @@ class Formatter(object):
         out_file.write('    """\n')
         if tddtags_config['generate_setup_method']:
             out_file.write('    %s\n' % tddtags_config['setup_method_def'])
-            out_file.write('        %s\n' % tddtags_config['setup_method_body'])
+            body = tddtags_config['setup_method_body'] % class_name
+            out_file.write('        %s\n' % body)
 
         if tddtags_config['generate_teardown_method']:
             out_file.write('\n    %s\n' % tddtags_config['teardown_method_def'])
-            out_file.write('        %s\n' % tddtags_config['teardown_method_body'])
+            body = tddtags_config['teardown_method_body'] % class_name
+            out_file.write('        %s\n' % body)
         else:
             out_file.write('    pass\n')
 
@@ -509,7 +516,6 @@ class ModuleUpdater(object):
 
     def _update_step1(self, loaded_module, module_path):
         # UTModuleContainer, if there are changes
-        container = None
 
         existing_classes, new_names = self._get_class_lists(loaded_module=loaded_module)
         if new_names:
@@ -777,10 +783,10 @@ class CompileTags(object):
         Runs the scanner over the module.
         :unit_test:
         """
+        module = _module_loader.load_module(self.module_full_name)
+
         if tddtags_config['verbose']:
             print '+ Compiling tags from %s' % self.module_full_name
-
-        module = _module_loader.load_module(self.module_full_name)
 
         # "Screw you guys - I'm going home!" -- Cartman
         if not module:
@@ -788,6 +794,13 @@ class CompileTags(object):
             return False
 
         self.handle_context(target=module, parent_context=module)
+
+        if tddtags_config['verbose']:
+            # TODO I think I'd also like to see total methods inspected and total tags found
+            mods = len(_test_module_details)
+            classes = sum(len(x.class_list) for x in _test_module_details.values())
+            print '+ Found %d modules, %d classes' % (mods, classes)
+
         return True
 
     def dump(self):
@@ -920,8 +933,9 @@ class CompileTags(object):
         """
         Gets the list of methods that are directly defined by a class (not parent class(es) methods).
         """
-        methods = inspect.getmembers(target, inspect.ismethod)  # inspect.ismethod)
+        methods = inspect.getmembers(target, inspect.ismethod)
         filtered = filter_to_class(members_list=methods, clazz=target)
+        # print 'Methods: ', methods
         # print 'Filtered: ', filtered
         return filtered
 
