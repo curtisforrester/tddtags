@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Core for tddtags module.
 
@@ -110,10 +109,12 @@ class ModuleLoader(object):
         :unit_test: load_module_diff_anchor
         """
         try:
+            # print '- Trying to load {}'.format(name)
             mod = importlib.import_module(name)
+            # print '- Loaded module: {}'.format(name)
             return mod
         except ImportError as ex:
-            print '- Failed to load module: %s. -> %s' % (name, ex.message)
+            print '- Failed to load module [%s] -> %s' % (name, ex.message)
             return None
 
 
