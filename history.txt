@@ -1,0 +1,500 @@
+ 1363  python tddtags/tddtags.py --verbose tddtags
+ 1364  python tddtags/tddtags.py --verbose tddtags
+ 1365  python tddtags/tddtags.py --verbose tddtags
+ 1366  python tddtags/tddtags.py --verbose tddtags
+ 1367  py.test
+ 1368  python tddtags/tddtags.py --verbose tddtags
+ 1369  python tddtags/gen.py --verbose tddtags
+ 1370  py.test
+ 1371  py.test
+ 1372  python tddtags/gen.py --verbose gen
+ 1373  clear
+ 1374  cd ..
+ 1375  ll
+ 1376  cd doc_gen_tests/
+ 1377  ll
+ 1378  rm output*
+ 1379  clear
+ 1380  ll
+ 1381  rm __pycache__/
+ 1382  rm -rf __pycache__/
+ 1383  clear
+ 1384  ll
+ 1385  ls tests
+ 1386  python doc_tags/gen.py --verbose gen
+ 1387  pwd
+ 1388  cd ..
+ 1389  mkdir
+ 1390  claer
+ 1391  ll
+ 1392  clear
+ 1393  ll
+ 1394  mkdir trial
+ 1395  cd trial
+ 1396  ll
+ 1397  mkdir old
+ 1398  mkdir new
+ 1399  cd old
+ 1400  mkdir doc_tags
+ 1401  mkdir tests
+ 1402  cp ../../doc_gen_tests/doc_tags/gen.py doc_tags/
+ 1403  cp ../../doc_gen_tests/tests/test_foundation.py tests/
+ 1404  clear
+ 1405  ll
+ 1406  ls doc_tags
+ 1407  ls tests
+ 1408  python doc_tags/gen.py --help
+ 1409  python doc_tags/gen.py --verbose gen
+ 1410  ll
+ 1411  rm test_foundation.py 
+ 1412  clear
+ 1413  ls tests/
+ 1414  cd ../../
+ 1415  ll
+ 1416  cd doc_gen_tests/
+ 1417  ll
+ 1418  python doc_tags/gen.py --verbose gen
+ 1419  clear
+ 1420  ll
+ 1421  cat setup.cfg
+ 1422  cat setup.py
+ 1423  clear
+ 1424  ll
+ 1425  cd doc_tags/
+ 1426  ll
+ 1427  rm __pycache__/
+ 1428  rm -rf __pycache__/
+ 1429  cd ..
+ 1430  python doc_tags/gen.py --verbose gen
+ 1431  cd tests
+ 1432  ll
+ 1433  rm -rf __pycache__/
+ 1434  rm *.pyc
+ 1435  clear
+ 1436  cd ../doc_tags/
+ 1437  ll
+ 1438  rm *.pyc
+ 1439  cd ..
+ 1440  clear
+ 1441  python doc_tags/gen.py --verbose gen
+ 1442  clear
+ 1443  ll
+ 1444  pwd
+ 1445  cd ../trial/old
+ 1446  ll
+ 1447  ls doc_tags/
+ 1448  python doc_tags/gen.py --verbose gen
+ 1449  clear
+ 1450  cd ..
+ 1451  l
+ 1452  ll
+ 1453  cd new
+ 1454  ll
+ 1455  cp ../../tddtags/tddtags/ .
+ 1456  cp -R ../../tddtags/tddtags/ .
+ 1457  ll
+ 1458  mkdir tddtags
+ 1459  mv *.py* tddtags
+ 1460  mkdir tests
+ 1461  cp ../../tddtags/tests/ tests/
+ 1462  cp ../../tddtags/tests/* tests/
+ 1463  cp -R ../../tddtags/tests/* tests/
+ 1464  ls 
+ 1465  ls tests
+ 1466  rm tests/*.pyc
+ 1467  rm tddtags/*.pyc
+ 1468  clear
+ 1469  ll
+ 1470  python tddtags/gen.py --verbose gen
+ 1471  ll
+ 1472  ls tests
+ 1473  py.test
+ 1474  clear
+ 1475  cd ../../tddtags/
+ 1476  ll
+ 1477  rm tddtags/*.pyc
+ 1478  rm tests/*.pyc
+ 1479  ll
+ 1480  ls tddtags/
+ 1481  ll tests/
+ 1482  rm -rf tests/__pycache__/
+ 1483  clear
+ 1484  cd tdd
+ 1485  ll
+ 1486  cd tdd
+ 1487  cd tddtags/
+ 1488  clear
+ 1489  ll
+ 1490  mv gen tddtags.py
+ 1491  mv gen.py tddtags.py
+ 1492  pwd
+ 1493  cd ..
+ 1494  clear
+ 1495  ll
+ 1496  clear
+ 1497  ll
+ 1498  ls tddtags
+ 1499  python tddtags/tddtags.py --verbose tddtags
+ 1500  ll
+ 1501  cd ../
+ 1502  ll
+ 1503  cd trial/new
+ 1504  claer
+ 1505  clear
+ 1506  ll
+ 1507  cd ..
+ 1508  mv new tddtags
+ 1509  cd tddtags
+ 1510  ll
+ 1511  python tddtags/gen.py --verbose gen
+ 1512  cd tests/
+ 1513  ll
+ 1514  nano test_tddtags.py
+ 1515  cd ..
+ 1516  clear
+ 1517  python tddtags/gen.py --verbose gen
+ 1518  open tests/
+ 1519  cd tddtags/
+ 1520  ll
+ 1521  rm *.pyc
+ 1522  mv gen.py tddtags.py
+ 1523  cd ..
+ 1524  python tddtags/gen.py --verbose gen
+ 1525  python tddtags/tddtags.py --verbose tddtags
+ 1526  ll
+ 1527  pwd
+ 1528  cd ..
+ 1529  clear
+ 1530  ll
+ 1531  python trial.py
+ 1532  ll
+ 1533  cd tddtags
+ 1534  ll
+ 1535  clear
+ 1536  python trial.py 
+ 1537  python trial.py 
+ 1538  python trial.py 
+ 1539  python trial.py 
+ 1540  ll
+ 1541  ls tddtags
+ 1542  ls tddtags
+ 1543  python trial.py 
+ 1544  python trial.py 
+ 1545  python trial.py 
+ 1546  ls tddtags
+ 1547  cat tddtags/tddtags.py
+ 1548  cat tddtags/tddtags.py
+ 1549  python trial.py 
+ 1550  pip list | grep findmodules
+ 1551  which py.test
+ 1552  pushd /Users/curtis/pythonvirt/cashbal/bin
+ 1553  ll
+ 1554  nano flake8 
+ 1555  claer
+ 1556  clear
+ 1557  ls flak*
+ 1558  cd flake8 
+ 1559  cat flake8 
+ 1560  ll
+ 1561  cd ..
+ 1562  ll
+ 1563  cd lib
+ 1564  clear
+ 1565  ll
+ 1566  cd python2.7/
+ 1567  ll
+ 1568  clear
+ 1569  ll flake8*
+ 1570  ls flak*
+ 1571  clear
+ 1572  ll
+ 1573  cd ..
+ 1574  ll
+ 1575  cd ..
+ 1576  ll
+ 1577  cd bin
+ 1578  ll
+ 1579  pwd
+ 1580  cd ..
+ 1581  clear
+ 1582  ll
+ 1583  cd li
+ 1584  cd lib
+ 1585  ll
+ 1586  cd ..
+ 1587  claer
+ 1588  clear
+ 1589  find . -name 'python'
+ 1590  find . -name 'config'
+ 1591  cd lib/python2.7/site-packages
+ 1592  ll
+ 1593  cd findmodules
+ 1594  ll
+ 1595  claer
+ 1596  clear
+ 1597  ll findmodules
+ 1598  ll findmodules*
+ 1599  pip list | grep findmodule
+ 1600  pwd
+ 1601  nano findmodules.py
+ 1602  cd
+ 1603  popd
+ 1604  cd ../..
+ 1605  ll
+ 1606  cd tddtags/
+ 1607  ll
+ 1608  cd tddtags/
+ 1609  ll
+ 1610  rm *.pyc
+ 1611  mv tddtags.py core.py
+ 1612  clear
+ 1613  ll
+ 1614  cd ..
+ 1615  py.test --verbose
+ 1616  cp ../doc_gen_tests/tests/a_test_sample.py .
+ 1617  py.test --verbose
+ 1618  ll
+ 1619  mv a_test_sample.py tests/
+ 1620  py.test --verbose
+ 1621  py.test --verbose
+ 1622  cp ../doc_gen_tests/doc_tags/sample.py tddtags/
+ 1623  py.test --verbose
+ 1624  py.test --verbose
+ 1625  rm output*
+ 1626  pwd
+ 1627  python tddtags/core.py --verbose core
+ 1628  ctags -R tddtags/
+ 1629  python tddtags/core.py --verbose core
+ 1630  python tddtags/core.py --verbose core
+ 1631  python tddtags/core.py --verbose core
+ 1632  python tddtags/core.py --verbose core
+ 1633  python tddtags/core.py --verbose core
+ 1634  python tddtags/core.py --verbose core
+ 1635  python
+ 1636  clear
+ 1637  python tddtags/core.py --verbose core
+ 1638  python tddtags/core.py --verbose core
+ 1639  clear
+ 1640  python tddtags/core.py --verbose core
+ 1641  python tddtags/core.py --verbose core
+ 1642  python tddtags/core.py --verbose core
+ 1643  python tddtags/core.py --verbose core
+ 1644  history | grep coverage
+ 1645  coverage
+ 1646  coverage help
+ 1647  coverage run help
+ 1648  coverage help run
+ 1649  clear
+ 1650  cat Makefile 
+ 1651  cat setup.py
+ 1652  clear
+ 1653  ll
+ 1654  pip list 
+ 1655  pip list | grep coverage
+ 1656  coverage --version
+ 1657  pip install coverage --upgrade
+ 1658  clear
+ 1659  python -m unittest
+ 1660  pwd
+ 1661  ll
+ 1662  python -m unittest tests
+ 1663  python -m unittest discover
+ 1664  coverage run python -m unittest discover
+ 1665  coverage run  -m unittest discover
+ 1666  coverage html
+ 1667  ll
+ 1668  ls htmlcov
+ 1669  open htmlcov/index.html 
+ 1670  coverage run  -m unittest discover
+ 1671  coverage html
+ 1672  python tddtags/core.py --verbose core
+ 1673  python
+ 1674  coverage run  -m unittest discover
+ 1675  coverage html
+ 1676  python
+ 1677  clear
+ 1678  coverage run  -m unittest discover
+ 1679  clear
+ 1680  coverage run  -m unittest discover
+ 1681  clear
+ 1682  coverage run  -m unittest discover
+ 1683  clear
+ 1684  coverage run  -m unittest discover
+ 1685  clear
+ 1686  coverage run  -m unittest discover
+ 1687  coverage run  -m unittest discover
+ 1688  clear
+ 1689  coverage run  -m unittest discover
+ 1690  coverage run  -m unittest discover
+ 1691  clear
+ 1692  coverage run  -m unittest discover
+ 1693  coverage run  -m unittest discover
+ 1694  pip list | grep module
+ 1695  pushd /System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/
+ 1696  ls modulefinder*
+ 1697  nano modulefinder.py
+ 1698  clear
+ 1699  pip list | grep modulefinder
+ 1700  pwd
+ 1701  ll
+ 1702  ll *module*
+ 1703  pip list | grep module
+ 1704  pip list | grep finder
+ 1705  rm modulefinder.py*
+ 1706  nano modulefinder.py
+ 1707  c
+ 1708  popd
+ 1709  pwd
+ 1710  clear
+ 1711  ll
+ 1712  python tddtags/core.py
+ 1713  python tddtags/core.py --anchor='/bla'  setup
+ 1714  python tddtags/core.py --anchor='/bla'  setup
+ 1715  python tddtags/core.py --anchor='/bla'  tddtags.core
+ 1716  python tddtags/core.py --anchor='/bla'  tddtags.core
+ 1717  python tddtags/core.py tddtags.core
+ 1718  python tddtags/core.py --anchor='/bla'  tddtags.core
+ 1719  python tddtags/core.py --anchor='/bla'  tddtags.core
+ 1720  python tddtags/core.py --help
+ 1721  python tddtags/core.py --anchor='/bla' tddtags.core
+ 1722  python
+ 1723  python tddtags/core.py --verbose tddtags/core
+ 1724  pwd
+ 1725  clear
+ 1726  ll
+ 1727  history | grep py.test
+ 1728  py.test
+ 1729  py.test
+ 1730  py.test
+ 1731  py.test -k test_compile
+ 1732  py.test -k test_compile
+ 1733  py.test -k test_compile
+ 1734  py.test -k test_compile
+ 1735  py.test -k test_compile
+ 1736  py.test -k test_compile
+ 1737  py.test -k test_compile
+ 1738  py.test -k test_compile
+ 1739  py.test -k test_compile
+ 1740  py.test -k CompileTagsTests
+ 1741  py.test -k test_push_modules_and_classes
+ 1742  py.test -k test_push_modules_and_classes
+ 1743  py.test -k test_compile
+ 1744  py.test -k test_push_modules_and_classes
+ 1745  py.test -k test_compile
+ 1746  py.test -k test_push_modules_and_classes
+ 1747  py.test -k test_pop_module_and_classes
+ 1748  py.test -k test_pop_module_and_class
+ 1749  py.test -k CompileTagsTests
+ 1750  clear
+ 1751  py.test --verbose
+ 1752  python tddtags/core.py --help
+ 1753  python
+ 1754  python tddtags/core.py --verbose --help
+ 1755  python tddtags/core.py --verbose --nosave 
+ 1756  python tddtags/core.py --verbose --nosave tddtags/core
+ 1757  python tddtags/core.py --verbose --nosave tddtags.core
+ 1758  flake8 tddtags/core.py
+ 1759  python
+ 1760  python ~/dev/manchac/dosis-base/web-ui/dynaload.py 
+ 1761  python ~/dev/manchac/dosis-base/web-ui/dynaload.py 
+ 1762  py.test -k UTModuleDetailsTests
+ 1763  py.test -k UTModuleDetailsTests
+ 1764  python
+ 1765  py.test -k UTModuleUpdaterTests
+ 1766  py.test -k ModuleUpdaterTests
+ 1767  py.test -k ModuleUpdaterTests
+ 1768  py.test -k ModuleUpdaterTests
+ 1769  py.test -k ModuleUpdaterTests
+ 1770  py.test -k ModuleUpdaterTests
+ 1771  flake8 tddtags/core.py
+ 1772  flake8 tddtags/core.py
+ 1773  clear
+ 1774  cd tddtags/
+ 1775  ll
+ 1776  flake8 core.py
+ 1777  pip list | grep flake8
+ 1778  flake8 --help
+ 1779  flake8-docstrings --help
+ 1780  pip list | grep flake8
+ 1781  pip uninstall flake8-docstrings
+ 1782  pip list | grep flake8
+ 1783  sudo pip uninstall flake8-docstrings
+ 1784  pip list | grep flake8
+ 1785  which flake8
+ 1786  which flake8-docstrings
+ 1787  sudo pip uninstall -H flake8-docstrings
+ 1788  workon dosis2
+ 1789  flake8 core.py
+ 1790  pip uninstall flake8-docstrings
+ 1791  workon cashbal
+ 1792  clear
+ 1793  flake8 core.py
+ 1794  ll
+ 1795  py.test -k ModuleUpdaterTests
+ 1796  cd ..
+ 1797  py.test -k ModuleUpdaterTests
+ 1798  py.test -k ModuleUpdaterTests
+ 1799  py.test -k ModuleUpdaterTests
+ 1800  py.test -k ModuleUpdaterTests
+ 1801  py.test -k ModuleUpdaterTests
+ 1802  py.test -k ModuleUpdaterTests
+ 1803  py.test -k test_get_class_lists
+ 1804  py.test -k test_add_new_classes
+ 1805  py.test -k test_add_new_classes
+ 1806  py.test -k test_add_new_classes
+ 1807  py.test -k test_add_new_classes_none
+ 1808  py.test -k test_add_new_classes_none
+ 1809  py.test -k add_new_tests_to_class_none
+ 1810  py.test -k test_add_new_tests_to_class_none
+ 1811  py.test -k test_add_new_tests_to_class
+ 1812  py.test -k test_add_new_tests_to_class
+ 1813  py.test -k test_add_new_tests_to_class
+ 1814  py.test -k test_add_new_tests_to_class
+ 1815  py.test -k test_add_new_tests_to_class
+ 1816  python
+ 1817  py.test -k test_add_new_tests_to_class
+ 1818  py.test -k test_add_new_tests_to_class
+ 1819  py.test -k test_add_new_tests_to_class
+ 1820  py.test -k test_update_new_methods
+ 1821  py.test -k test_update_new_methods
+ 1822  py.test -k test_update_new_methods
+ 1823  py.test -k test_update_new_methods
+ 1824  py.test -k test_update_new_methods
+ 1825  py.test -k test_update_new_methods
+ 1826  py.test -k test_update_new_methods
+ 1827  py.test -k test_update_new_methods
+ 1828  py.test -k ModuleUpdaterTests
+ 1829  py.test -k ModuleUpdaterTests
+ 1830  py.test -k ModuleUpdaterTests
+ 1831  py.test -k ModuleUpdaterTests
+ 1832  py.test -k ModuleUpdaterTests
+ 1833  history | grep coverage
+ 1834  coverage run  -m unittest discover
+ 1835  coverage html
+ 1836  ll
+ 1837  open htmlcov/index.html 
+ 1838  py.test -k test_save
+ 1839  py.test -k test_save
+ 1840  py.test -k test_save
+ 1841  py.test -k test_save --verbose
+ 1842  py.test -k test_save --verbose
+ 1843  py.test -k test_save --verbose
+ 1844  py.test -k test_save --verbose
+ 1845  py.test -k test_save --verbose
+ 1846  py.test -k test_save --verbose
+ 1847  py.test -k test_save --verbose
+ 1848  py.test -k test_save --verbose
+ 1849  py.test -k test_save --verbose
+ 1850  py.test -k test_save --verbose
+ 1851  py.test -k test_save --verbose
+ 1852  py.test -k test_save --verbose
+ 1853  coverage -run py.test -k test_save --verbose
+ 1854  coverage --run py.test -k test_save --verbose
+ 1855  coverage run py.test -k test_save --verbose
+ 1856  coverage run -m py.test -k test_save --verbose
+ 1857  coverage html
+ 1858  history | grep 'coverage'
+ 1859  coverage run  -m unittest discover
+ 1860  coverage html
+ 1861  history
+ 1862  history > history.txt
